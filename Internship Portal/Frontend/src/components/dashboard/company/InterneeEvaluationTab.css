@@ -1,0 +1,118 @@
+/* Internee Evaluation Tab Enhanced Animations */
+
+/* Fade in animation for cards */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply animation to cards */
+.space-y-6 > div {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Staggered animation for evaluation cards */
+.grid.gap-6 > div {
+  animation: fadeInUp 0.8s ease-out forwards;
+  opacity: 0;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Enhanced hover effects for cards */
+.hover\:shadow-2xl:hover {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Badge animations */
+.badge-pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Button hover enhancements */
+.group:hover .group-hover\:scale-110 {
+  transform: scale(1.1);
+}
+
+/* Gradient background animations */
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.gradient-animated {
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+}
+
+/* Loading skeleton for empty states */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+  .space-y-6 > div {
+    animation-duration: 0.4s;
+  }
+  
+  .grid.gap-6 > div {
+    animation-duration: 0.5s;
+  }
+}
+
+/* Focus improvements for accessibility */
+button:focus-visible,
+.focus\:ring-2:focus-visible {
+  outline: 2px solid #16a085;
+  outline-offset: 2px;
+}
+
+/* Enhanced transitions */
+.transition-all {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Card stagger effect */
+.card-stagger-1 { animation-delay: 0ms; }
+.card-stagger-2 { animation-delay: 100ms; }
+.card-stagger-3 { animation-delay: 200ms; }
+.card-stagger-4 { animation-delay: 300ms; }
+.card-stagger-5 { animation-delay: 400ms; }
+.card-stagger-6 { animation-delay: 500ms; }

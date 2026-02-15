@@ -1,0 +1,891 @@
+import React, { useState, useEffect } from 'react';
+import { Search, User, Calendar, Building, Save, FileText, Download, Eye, Plus, List, Star, Award, CheckCircle, Clock } from 'lucide-react';
+import Card from '../../../ui/Card';
+import Button from '../../../ui/Button';
+import Badge from '../../../ui/Badge';
+import Modal from '../../../ui/Modal';
+import { toast } from 'react-hot-toast';
+
+// API configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5005/api';
+
+// Helper function to get auth token
+const getAuthToken = () => {
+  const userString = localStorage.getItem('user');
+  if (userString) {
+    try {
+      const user = JSON.parse(userString);
+      return user.token;
+    } catch (error) {
+      console.error('Error parsing user from localStorage:', error);
+    }
+  }
+  return localStorage.getItem('token');
+};
+
+const InterneeEvaluationTab = () => {
+      console.error('Error parsing user from localStorage:', error);
+    }
+  }
+  return localStorage.getItem('token');
+};
+
+const InterneeEvaluationTab = () => {
+  const [activeTab, setActiveTab] = useState('new'); // 'new' or 'submitted'
+  const [interns, setInterns] = useState([]);
+  const [selectedIntern, setSelectedIntern] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [submittedEvaluations, setSubmittedEvaluations] = useState([]);
+  const [loadingEvaluations, setLoadingEvaluations] = useState(false);
+  const [showEvaluationModal, setShowEvaluationModal] = useState(false);
+  const [selectedEvaluation, setSelectedEvaluation] = useState(null);
+
+  // Evaluation criteria with marks
+  const [evaluation, setEvaluation] = useState({
+    punctualityAndAttendance: '',
+    abilityToLinkTheoryToPractice: '',
+    demonstratedCriticalThinking: '',
+    technicalKnowledge: '',
+    creativityConceptualAbility: '',
+    abilityToAdaptToVarietyOfTasks: '',
+    timeManagementDeadlineCompliance: '',
+    behavedInProfessionalManner: '',
+    effectivelyPerformedAssignments: '',
+    oralWrittenCommunicationSkills: '',
+    supervisorComments: ''
+  });
+
+  // Evaluation criteria labels
+  const criteriaLabels = {
+    punctualityAndAttendance: 'Punctuality and Attendance',
+    abilityToLinkTheoryToPractice: 'Ability to link theory to practice',
+    demonstratedCriticalThinking: 'Demonstrated critical thinking and problem-solving skills',
+    technicalKnowledge: 'Technical Knowledge',
+    creativityConceptualAbility: 'Creativity / Conceptual Ability',
+    abilityToAdaptToVarietyOfTasks: 'Ability to adapt to a variety of tasks',
+    timeManagementDeadlineCompliance: 'Time Management & Deadline Compliance',
+    behavedInProfessionalManner: 'Behaved in a professional manner',
+    effectivelyPerformedAssignments: 'Effectively performed assignments',
+    oralWrittenCommunicationSkills: 'Oral & Written communication skills'
+  };
+
+  // Mark values and labels
+  const markOptions = [
+    { value: '4', label: 'Excellent (4)' },
+    { value: '3', label: 'Very Good (3)' },
+    { value: '2', label: 'Satisfactory (2)' },
+    { value: '1', label: 'Unsatisfactory (1)' }
+  ];
+
+  // Fetch interns assigned to this company
+  const fetchInterns = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/applications/company/accepted`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInterns(data.data || []);
+      } else {
+        toast.error('Failed to fetch interns');
+      }
+    } catch (error) {
+      console.error('Error fetching interns:', error);
+      toast.error('Failed to fetch interns');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch submitted evaluations
+  const fetchSubmittedEvaluations = async () => {
+    try {
+      setLoadingEvaluations(true);
+      const token = getAuthToken();
+      
+      const response = await fetch(`${API_BASE_URL}/internee-evaluations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSubmittedEvaluations(data.data || []);
+      } else {
+        toast.error('Failed to fetch submitted evaluations');
+      }
+    } catch (error) {
+      console.error('Error fetching evaluations:', error);
+      toast.error('Failed to fetch submitted evaluations');
+    } finally {
+      setLoadingEvaluations(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInterns();
+    fetchSubmittedEvaluations();
+  }, []);
+
+  // Filter interns based on search term
+  const filteredInterns = interns.filter(intern => 
+    intern.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    intern.studentEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Handle intern selection
+  const handleInternSelection = (intern) => {
+    setSelectedIntern(intern);
+    // Reset evaluation form
+    setEvaluation({
+      punctualityAndAttendance: '',
+      abilityToLinkTheoryToPractice: '',
+      demonstratedCriticalThinking: '',
+      technicalKnowledge: '',
+      creativityConceptualAbility: '',
+      abilityToAdaptToVarietyOfTasks: '',
+      timeManagementDeadlineCompliance: '',
+      behavedInProfessionalManner: '',
+      effectivelyPerformedAssignments: '',
+      oralWrittenCommunicationSkills: '',
+      supervisorComments: ''
+    });
+  };
+
+  // Handle evaluation change
+  const handleEvaluationChange = (criteria, value) => {
+    setEvaluation(prev => ({
+      ...prev,
+      [criteria]: value
+    }));
+  };
+
+  // Calculate total marks
+  const calculateTotalMarks = () => {
+    const criteriaKeys = Object.keys(criteriaLabels);
+    const totalMarks = criteriaKeys.reduce((sum, key) => {
+      const mark = parseInt(evaluation[key]) || 0;
+      return sum + mark;
+    }, 0);
+    return totalMarks;
+  };
+
+  // Handle form submission
+  const handleSubmitEvaluation = async () => {
+    if (!selectedIntern) {
+      toast.error('Please select an intern first');
+      return;
+    }
+
+    // Validate that all criteria are filled
+    const criteriaKeys = Object.keys(criteriaLabels);
+    const missingCriteria = criteriaKeys.filter(key => !evaluation[key]);
+    
+    if (missingCriteria.length > 0) {
+      toast.error('Please fill all evaluation criteria');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const token = getAuthToken();
+      
+      const evaluationData = {
+        internId: selectedIntern.studentId,
+        applicationId: selectedIntern._id,
+        evaluation: {
+          ...evaluation,
+          totalMarks: calculateTotalMarks(),
+          maxMarks: 40
+        }
+      };
+
+      const response = await fetch(`${API_BASE_URL}/internee-evaluations/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(evaluationData)
+      });
+
+      if (response.ok) {
+        toast.success('Evaluation submitted successfully!');
+        // Refresh the submitted evaluations list
+        fetchSubmittedEvaluations();
+        // Reset form
+        setSelectedIntern(null);
+        setEvaluation({
+          punctualityAndAttendance: '',
+          abilityToLinkTheoryToPractice: '',
+          demonstratedCriticalThinking: '',
+          technicalKnowledge: '',
+          creativityConceptualAbility: '',
+          abilityToAdaptToVarietyOfTasks: '',
+          timeManagementDeadlineCompliance: '',
+          behavedInProfessionalManner: '',
+          effectivelyPerformedAssignments: '',
+          oralWrittenCommunicationSkills: '',
+          supervisorComments: ''
+        });
+        // Switch to submitted evaluations tab
+        setActiveTab('submitted');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to submit evaluation');
+      }
+    } catch (error) {
+      console.error('Error submitting evaluation:', error);
+      toast.error('Failed to submit evaluation');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle viewing evaluation details
+  const handleViewEvaluation = (evaluation) => {
+    setSelectedEvaluation(evaluation);
+    setShowEvaluationModal(true);
+  };
+
+  // Handle downloading evaluation as PDF
+  const handleDownloadPDF = async (evaluationId) => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/internee-evaluations/${evaluationId}/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `evaluation-${evaluationId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('PDF downloaded successfully');
+      } else {
+        toast.error('Failed to download PDF');
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF');
+    }
+  };
+
+  // Calculate grade from total marks
+  const calculateGrade = (totalMarks, maxMarks = 40) => {
+    const percentage = (totalMarks / maxMarks) * 100;
+    if (percentage >= 90) return 'A+';
+    if (percentage >= 80) return 'A';
+    if (percentage >= 70) return 'B';
+    if (percentage >= 60) return 'C';
+    if (percentage >= 50) return 'D';
+    return 'F';
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Modern Header */}
+      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 rounded-3xl p-8 border border-slate-200/60 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-xl transform hover:scale-105 transition-all duration-300">
+              <Award className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 mb-1">Intern Evaluation</h1>
+              <p className="text-slate-600 text-lg">Assess and track intern performance with comprehensive evaluations</p>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center space-x-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{interns.length}</div>
+              <div className="text-sm text-slate-500">Active Interns</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{submittedEvaluations.length}</div>
+              <div className="text-sm text-slate-500">Evaluations</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-2 backdrop-blur-sm">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setActiveTab('new')}
+            className={`flex-1 py-4 px-6 rounded-xl font-semibold text-sm transition-all duration-300 transform ${
+              activeTab === 'new'
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:scale-102'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <Plus className="w-5 h-5" />
+              <span>New Evaluation</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('submitted')}
+            className={`flex-1 py-4 px-6 rounded-xl font-semibold text-sm transition-all duration-300 transform ${
+              activeTab === 'submitted'
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:scale-102'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <List className="w-5 h-5" />
+              <span>Submitted ({submittedEvaluations.length})</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'new' && (
+        <div className="space-y-8">
+          {/* Intern Selection Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-6 py-4 border-b border-slate-200">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-500 p-2 rounded-lg">
+                  <Search className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Select Intern</h3>
+                  <p className="text-sm text-slate-600">Choose an intern to evaluate</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Search Bar */}
+              <div className="relative mb-6">
+                <input
+                  type="text"
+                  placeholder="Search by intern name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
+                <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+              </div>
+
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="bg-blue-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                  <p className="text-slate-600 font-medium">Loading interns...</p>
+                </div>
+              ) : filteredInterns.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredInterns.map((intern) => (
+                    <div
+                      key={intern._id}
+                      onClick={() => handleInternSelection(intern)}
+                      className={`p-6 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-xl border-2 ${
+                        selectedIntern?._id === intern._id
+                          ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-xl ring-2 ring-blue-200'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-lg'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className={`p-3 rounded-xl ${
+                          selectedIntern?._id === intern._id
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                            : 'bg-gradient-to-br from-slate-400 to-slate-500'
+                        }`}>
+                          <User className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-slate-900 truncate text-lg">{intern.studentName}</h4>
+                          <p className="text-sm text-slate-600 truncate">{intern.studentEmail}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 text-sm">
+                        <div className="flex items-center text-slate-600 bg-slate-50 p-2 rounded-lg">
+                          <Building className="w-4 h-4 mr-3 text-blue-500" />
+                          <span className="truncate font-medium">{intern.jobTitle}</span>
+                        </div>
+                        {intern.studentDepartment && (
+                          <div className="flex items-center text-slate-600 bg-slate-50 p-2 rounded-lg">
+                            <FileText className="w-4 h-4 mr-3 text-green-500" />
+                            <span className="truncate font-medium">{intern.studentDepartment}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between">
+                        <Badge className={`px-3 py-1 text-xs font-semibold ${
+                          selectedIntern?._id === intern._id
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
+                            : 'bg-green-100 text-green-800 border-green-200'
+                        }`}>
+                          Active
+                        </Badge>
+                        {selectedIntern?._id === intern._id && (
+                          <div className="flex items-center space-x-1 text-blue-600">
+                            <CheckCircle className="w-5 h-5" />
+                            <span className="text-sm font-medium">Selected</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="bg-slate-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <User className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-slate-900 mb-2">No Interns Found</h4>
+                  <p className="text-slate-600">
+                    {searchTerm ? 'No interns match your search criteria' : 'No interns are currently assigned to your company'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+            <div className="max-h-60 overflow-y-auto">
+              {filteredInterns.length > 0 ? (
+                <div className="grid gap-2">
+                  {filteredInterns.map((intern) => (
+                    <div
+                      key={intern._id}
+                      onClick={() => handleInternSelection(intern)}
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                        selectedIntern?._id === intern._id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <User className="w-8 h-8 text-gray-400" />
+                            <div>
+                              <p className="font-semibold text-gray-900">{intern.studentName}</p>
+                              <p className="text-sm text-gray-600">{intern.studentEmail}</p>
+                              {intern.studentRollNumber && intern.studentRollNumber !== 'N/A' && (
+                                <p className="text-sm text-gray-500">Roll: {intern.studentRollNumber}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                            <div className="flex items-center">
+                              <Building className="w-4 h-4 mr-1" />
+                              {intern.jobTitle}
+                            </div>
+                            <div className="flex items-center">
+                              <Calendar className="w-4 h-4 mr-1" />
+                              Approved: {new Date(intern.approvedAt).toLocaleDateString()}
+                            </div>
+                            {intern.studentDepartment && (
+                              <div>
+                                Dept: {intern.studentDepartment}
+                              </div>
+                            )}
+                            {intern.studentSemester && intern.studentSemester !== 'N/A' && (
+                              <div>
+                                Semester: {intern.studentSemester}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Hired
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="bg-slate-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <User className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-slate-900 mb-2">No Interns Found</h4>
+                  <p className="text-slate-600">
+                    {searchTerm ? 'No interns match your search criteria' : 'No interns are currently assigned to your company'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Evaluation Form */}
+          {selectedIntern && (
+            <Card className="overflow-hidden shadow-xl border border-slate-200/60">
+              <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 px-8 py-6 border-b border-slate-200/60">
+              <div className="flex items-center space-x-4">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-2xl shadow-lg">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Performance Evaluation</h3>
+                  <p className="text-slate-600">Comprehensive assessment of intern's capabilities and achievements</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8">
+              {/* Intern Details Header */}
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50 p-8 rounded-2xl mb-8 border border-slate-200/60 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="text-center group">
+                    <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-4 rounded-2xl w-16 h-16 mx-auto mb-3 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <User className="w-7 h-7 text-blue-600" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Name</p>
+                    <p className="text-base font-semibold text-slate-900 mt-2">{selectedIntern.studentName}</p>
+                  </div>
+                  <div className="text-center group">
+                    <div className="bg-gradient-to-br from-green-100 to-green-200 p-4 rounded-2xl w-16 h-16 mx-auto mb-3 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <Building className="w-7 h-7 text-green-600" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Position</p>
+                    <p className="text-base font-semibold text-slate-900 mt-2">{selectedIntern.jobTitle}</p>
+                  </div>
+                  <div className="text-center group">
+                    <div className="bg-gradient-to-br from-purple-100 to-purple-200 p-4 rounded-2xl w-16 h-16 mx-auto mb-3 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <Calendar className="w-7 h-7 text-purple-600" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Department</p>
+                    <p className="text-base font-semibold text-slate-900 mt-2">{selectedIntern.studentDepartment || 'N/A'}</p>
+                  </div>
+                  <div className="text-center group">
+                    <div className="bg-gradient-to-br from-orange-100 to-orange-200 p-4 rounded-2xl w-16 h-16 mx-auto mb-3 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <FileText className="w-7 h-7 text-orange-600" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Roll Number</p>
+                    <p className="text-base font-semibold text-slate-900 mt-2">{selectedIntern.studentRollNumber || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-6 rounded-2xl mb-8 shadow-sm">
+                <div className="flex items-start space-x-3">
+                  <div className="bg-blue-500 p-2 rounded-lg mt-1">
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-blue-800 font-medium">
+                    <strong>Instructions:</strong> Mark only one option per row. Each criterion carries a maximum of 4 marks.
+                  </p>
+                </div>
+              </div>
+
+              {/* Evaluation Table */}
+              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-8">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-300 p-3 text-left font-medium">Assessment Criteria</th>
+                      <th className="border border-gray-300 p-3 text-center">Excellent<br/>(4)</th>
+                      <th className="border border-gray-300 p-3 text-center">Very Good<br/>(3)</th>
+                      <th className="border border-gray-300 p-3 text-center">Satisfactory<br/>(2)</th>
+                      <th className="border border-gray-300 p-3 text-center">Unsatisfactory<br/>(1)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(criteriaLabels).map(([key, label]) => (
+                      <tr key={key} className="hover:bg-gray-50">
+                        <td className="border border-gray-300 p-3 font-medium">{label}</td>
+                        {markOptions.map((option) => (
+                          <td key={option.value} className="border border-gray-300 p-3 text-center">
+                            <input
+                              type="radio"
+                              name={key}
+                              value={option.value}
+                              checked={evaluation[key] === option.value}
+                              onChange={(e) => handleEvaluationChange(key, e.target.value)}
+                              className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Total Marks */}
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <p className="text-lg font-semibold">
+                  Total Marks Obtained (out of 40): <span className="text-blue-600">{calculateTotalMarks()}</span>
+                </p>
+              </div>
+
+              {/* Supervisor Comments */}
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Supervisor Comments:
+                </label>
+                <textarea
+                  value={evaluation.supervisorComments}
+                  onChange={(e) => handleEvaluationChange('supervisorComments', e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your comments about the intern's performance..."
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div className="mt-6 flex justify-end">
+                <Button
+                  onClick={handleSubmitEvaluation}
+                  disabled={saving || calculateTotalMarks() === 0}
+                  className="bg-blue-600 hover:bg-blue-700 px-6 py-2"
+                >
+                  {saving ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Submitting...
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <Save className="w-4 h-4 mr-2" />
+                      Submit Evaluation
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </div>
+            </Card>
+          )}
+
+      {/* Instructions Card */}
+      <Card className="p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 border-blue-200/60 shadow-lg">
+        <div className="flex items-start space-x-4">
+          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-2xl shadow-lg">
+            <FileText className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-bold text-blue-900 mb-4 text-lg">How to Use This Evaluation System</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3 text-blue-800">
+                  <div className="bg-blue-200 p-1 rounded-full">
+                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="font-medium">Select an intern from the list above</span>
+                </div>
+                <div className="flex items-center space-x-3 text-blue-800">
+                  <div className="bg-blue-200 p-1 rounded-full">
+                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="font-medium">Rate each criterion by selecting the appropriate option</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3 text-blue-800">
+                  <div className="bg-blue-200 p-1 rounded-full">
+                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="font-medium">Add detailed supervisor comments</span>
+                </div>
+                <div className="flex items-center space-x-3 text-blue-800">
+                  <div className="bg-blue-200 p-1 rounded-full">
+                    <CheckCircle className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="font-medium">Submit the evaluation to save and generate reports</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Submitted Evaluations Tab */}
+      {activeTab === 'submitted' && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold flex items-center">
+              <List className="w-5 h-5 mr-2" />
+              Submitted Evaluations
+            </h3>
+          </div>
+
+          {loadingEvaluations ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : submittedEvaluations.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No evaluations submitted</h3>
+              <p className="mt-1 text-sm text-gray-500">Submit your first intern evaluation to see it here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {submittedEvaluations.map((evaluation) => (
+                <div key={evaluation._id} className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-102">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="bg-gradient-to-br from-blue-100 to-indigo-200 p-3 rounded-2xl">
+                          <User className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xl font-bold text-slate-900 truncate">
+                            {evaluation.internName || 'Student Name'}
+                          </p>
+                          <p className="text-slate-600">
+                            {evaluation.internEmail || 'student@example.com'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div className="text-center bg-slate-50 p-3 rounded-xl">
+                          <p className="text-sm font-semibold text-slate-500">Total Marks</p>
+                          <p className="text-2xl font-bold text-blue-600">
+                            {evaluation.evaluation?.totalMarks || 0}/40
+                          </p>
+                        </div>
+                        <div className="text-center bg-slate-50 p-3 rounded-xl">
+                          <p className="text-sm font-semibold text-slate-500">Grade</p>
+                          <Badge
+                            variant={
+                              evaluation.grade === 'A+' || evaluation.grade === 'A' ? 'success' :
+                              evaluation.grade === 'B' || evaluation.grade === 'C' ? 'warning' : 'danger'
+                            }
+                            className="text-lg font-bold px-4 py-2"
+                          >
+                            {evaluation.grade || calculateGrade(evaluation.evaluation?.totalMarks || 0)}
+                          </Badge>
+                        </div>
+                        <div className="text-center bg-slate-50 p-3 rounded-xl">
+                          <p className="text-sm font-semibold text-slate-500">Submitted</p>
+                          <p className="text-sm font-medium text-slate-900">
+                            {new Date(evaluation.submittedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4 text-sm text-slate-600">
+                          <div className="flex items-center bg-slate-100 px-3 py-1 rounded-full">
+                            <Building className="w-4 h-4 mr-2 text-green-600" />
+                            <span className="font-medium">{evaluation.jobTitle || 'Not specified'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3">
+                          <Button
+                            onClick={() => handleViewEvaluation(evaluation)}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center bg-white hover:bg-slate-50 border-slate-300 hover:border-slate-400 transition-all duration-200"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </Button>
+                          <Button
+                            onClick={() => handleDownloadPDF(evaluation._id)}
+                            className="flex items-center bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                            size="sm"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download PDF
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Evaluation Details Modal */}
+      {showEvaluationModal && selectedEvaluation && (
+        <Modal 
+          isOpen={showEvaluationModal} 
+          onClose={() => setShowEvaluationModal(false)}
+          title="Evaluation Details"
+        >
+          <div className="space-y-6">
+            {/* Student Info */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">Student Information</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Name:</span> {selectedEvaluation.internName}
+                </div>
+                <div>
+                  <span className="font-medium">Email:</span> {selectedEvaluation.internEmail}
+                </div>
+                <div>
+                  <span className="font-medium">Total Marks:</span> {selectedEvaluation.evaluation?.totalMarks}/40
+                </div>
+                <div>
+                  <span className="font-medium">Grade:</span> 
+                  <Badge 
+                    variant={
+                      selectedEvaluation.grade === 'A+' || selectedEvaluation.grade === 'A' ? 'success' :
+                      selectedEvaluation.grade === 'B' || selectedEvaluation.grade === 'C' ? 'warning' : 'danger'
+                    }
+                    className="ml-2"
+                  >
+                    {selectedEvaluation.grade}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Evaluation Scores */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gray-900">Assessment Scores</h4>
+              {Object.entries(criteriaLabels).map(([key, label]) => (
+                <div key={key} className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-sm text-gray-700">{label}</span>
+                  <span className="font-medium text-blue-600">
+                    {selectedEvaluation.evaluation?.[key] || 0}/4
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Comments */}
+            {selectedEvaluation.evaluation?.supervisorComments && (
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-2">Supervisor Comments</h4>
+                <p className="text-gray-700 bg-gray-50 p-3 rounded">
+                  {selectedEvaluation.evaluation.supervisorComments}
+                </p>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+export default InterneeEvaluationTab;
